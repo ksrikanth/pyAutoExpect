@@ -39,10 +39,17 @@ class LogStringStream:
             
 
 class SessionStream:
-    def __init__(self,logger):
+    def __init__(self, program, logger):
         self.in_stream = LogStringStream("INPUT:>",logger,delimitter="\r")
         self.out_stream = LogStringStream("OUTPUT:>",logger)
         self.prompts = set([])
+
+        self.session_id = pexpect.spawn(program)
+        self.session_id.timeout=2
+        self.session_id.expect(pexpect.TIMEOUT)
+
+        self.set_logmode("RAW")
+
 
     def in_log(self,partial_input):
         if (self.in_stream.incomplete_line == ""):
@@ -93,17 +100,14 @@ log_file=open(sys.argv[2],"w")
 #logger.error ("Spawning program:%s"%program)
 
 #session_stream = SessionStream(logger)
-session_stream = SessionStream(log_file)
-progInstance = pexpect.spawn(program)
-
-progInstance.timeout=2
-progInstance.expect(pexpect.TIMEOUT)
-
-session_stream.set_logmode("RAW")
+session_stream = SessionStream(program, log_file)
 
 #progInstance.interact(input_filter=log_input, output_filter=log_output)
-progInstance.interact(input_filter=log_input, output_filter=log_output)
+print session_stream.__dict__
+session_stream.session_id.interact(input_filter=log_input, output_filter=log_output)
 
 for prompt in sorted(session_stream.prompts):
     print "Prompts...",prompt
-progInstance.close()
+session_stream.session_id.close()
+log_file.close()
+
