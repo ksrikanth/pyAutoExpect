@@ -31,7 +31,11 @@ class LogStringStream:
 
     def log (self,line):
         #for line in self.add_input(partial_input):
-        self.logger.error ("%s: %s"%(self.name, line))
+        #self.logger.error ("%s: %s"%(self.name, line))
+        if (self.log_mode == "RAW"):
+            print >>self.logger, line
+        else:
+            self.logger.error ("%s: %s"%(self.name, line))
             
 
 class SessionStream:
@@ -41,31 +45,27 @@ class SessionStream:
         self.prompts = set([])
 
     def in_log(self,partial_input):
+        if (self.in_stream.incomplete_line == ""):
+            self.prompts.add(self.out_stream.incomplete_line)
+       
         lines=self.in_stream.add_input(partial_input)
-        if (len(lines) != 0):
-            if (lines[0] != ""):
-                print ("Line..%s, IncompleteLine:%s"%(lines[0],self.out_stream.incomplete_line))
-                prompt_re=re.match(("(.*)%s"%lines[0]), self.out_stream.incomplete_line)
-                self.prompts.add(prompt_re.group(1))
-            else:
-                self.prompts.add(self.out_stream.incomplete_line)
-                print ("Line..", lines[0])
-                print ("Incomplete_line..", self.out_stream.incomplete_line)
-        for line in lines:
-            self.in_stream.log(line)
+        if (lines != []):
+            self.in_stream.log("<input>")
+            for line in lines:
+                self.in_stream.log(line)
+            self.in_stream.log("</input>")
 
     def out_log(self,partial_input):
         lines=self.out_stream.add_input(partial_input)
-        for line in lines:
-            self.out_stream.log(line)
+        if (lines != []):
+            self.in_stream.log("<output>")
+            for line in lines:
+                self.out_stream.log(line)
+            self.in_stream.log("</output>")
 
-program = sys.argv[1]
-
-logger = logging.getLogger("Session")
-logging.basicConfig(filename="Session.log", level=logging.DEBUG)
-logger.error ("Spawning program:%s"%program)
-
-session_stream = SessionStream(logger)
+    def set_logmode ( self, mode):
+        self.in_stream.log_mode=mode
+        self.out_stream.log_mode=mode
 
 def log_input(input_string):
     global session_stream
@@ -85,10 +85,22 @@ for char in "Hello\r\n":
 
 
 '''
+program = sys.argv[1]
+log_file=open(sys.argv[2],"w")
+
+#logger = logging.getLogger("Session")
+#logging.basicConfig(filename="Session.log", level=logging.DEBUG)
+#logger.error ("Spawning program:%s"%program)
+
+#session_stream = SessionStream(logger)
+session_stream = SessionStream(log_file)
 progInstance = pexpect.spawn(program)
 
 progInstance.timeout=2
 progInstance.expect(pexpect.TIMEOUT)
+
+session_stream.set_logmode("RAW")
+
 #progInstance.interact(input_filter=log_input, output_filter=log_output)
 progInstance.interact(input_filter=log_input, output_filter=log_output)
 
